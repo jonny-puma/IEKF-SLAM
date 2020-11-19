@@ -28,28 +28,34 @@ if not sol.success:
     sys.exit(1)
 
 # measurement noise
-W = np.diag([1e-3, 1e-3])
+W = np.diag((1e-3, 1e-3))
 
-# ekf inputs
-ekf_x0 = y0
+# create noisy measurements
 ekf_z = np.zeros((len(p), t))
 for i in range(t):
     for j in range(0,len(p),2):
         w_w = np.random.multivariate_normal((0,0), W)
-        ekf_z[j:j+2,i] = rotz(sol.y[0,i]).T@(sol.y[1:3,i] - sol.y[3+j:5+j,i]) + w_w
+        ekf_z[j:j+2,i] = rotz(sol.y[0,i]).T@(sol.y[3+j:5+j,i] - sol.y[1:3,i]) + w_w
+
+# ekf initial guess
+ekf_x0 = np.hstack((y0[0:3], ekf_z[:,0]))
+ekf_P0 = np.diag((0,0,0,3,3,3,3,3,3))
+
+# inputs
 ekf_u = np.vstack((np.full(t, 0.1), np.full(t, 0.1)))
-ekf_P0 = np.zeros((len(y0), len(y0)))
+ekf_u[:,0] = np.zeros(2)
 
 # run EKF
 ekf_y, ekf_P = ekf.estimate(sol.t, ekf_z, ekf_u, ekf_x0, ekf_P0)
 
 plt.figure()
 plt.plot(sol.y[1,:], sol.y[2,:])
-plt.plot(ekf_y[1,:], ekf_y[2,:], linestyle="--", color="r")
+plt.plot(ekf_y[1,:], ekf_y[2,:], color="r")
 for i in range(0, len(p), 2):
-    plt.plot(p[i], p[i+1], "kx")
+    plt.plot(p[i], p[i+1], "xk")
 for i in range(0, len(p), 2):
-    plt.plot(ekf_y[3+i,:], ekf_y[4+i,:], "rx")
+    plt.plot(ekf_y[3+i,:], ekf_y[4+i,:], ".r", alpha=0.01)
+    plt.plot(ekf_y[3+i,-1], ekf_y[4+i,-1], "xg")
 plt.axis("equal")
 plt.title("System trajectory")
 plt.show()

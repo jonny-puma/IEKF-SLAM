@@ -15,8 +15,8 @@ def estimate(t, y, u, x0, P0):
     P_m[:,:,0] = P0
 
     # Noise covariances
-    V = np.zeros((lx, lx))
-    W = np.zeros((lp, lp))
+    V = np.diag((1e-3, 1e-3, 1e-3, 0, 0, 0, 0, 0, 0))
+    W = np.diag([1e-3]*lp)
 
     # Identity matrix & skew symmetric matrix
     I = np.eye(lx)
@@ -60,7 +60,7 @@ def estimate(t, y, u, x0, P0):
             H[j:j+2,3+j:5+j] = rotT
 
         # Kalman gain, tiny perturbation added to avoid inverting singular matrix
-        K = P_p@H.T@np.linalg.inv(H@P_p@H.T + W + np.random.normal(0,1e-5, (lp, lp)))
+        K = P_p@H.T@np.linalg.inv(H@P_p@H.T + W) #+ np.random.normal(0,1e-5, (lp, lp)))
 
         # Posteriror estimate (symmetric P_m for numerical stability)
         P_m[:,:,i] = (I-K@H)@P_p@(I-K@H).T + K@W@K.T

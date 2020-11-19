@@ -17,9 +17,10 @@ def dynamics(t, y):
     d_theta = omega
     d_x = rotz(theta) @ v
     d_p = np.zeros(len(ps))
+    d_X = np.hstack((d_theta, d_x, d_p))
 
     # Process noise
-    w_v = np.random.multivariate_normal((0,0,0), np.eye(3)*1e-5)
+    w_v = np.hstack((np.random.multivariate_normal((0,0,0), np.eye(3)*1e-5), np.zeros(len(ps))))
 
-    return np.hstack((d_theta, d_x, d_p)) + w_v
+    return d_X + w_v 
 
