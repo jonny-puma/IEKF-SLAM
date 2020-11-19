@@ -1,0 +1,12 @@
+# python
+__pycache__
+*.py[cod]
+
+# vim
+*~
+*.swp
+
+# mac
+.DS_store
+
+
