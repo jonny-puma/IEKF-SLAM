@@ -1,6 +1,6 @@
 import pdb
 import numpy as np
-from rot import rotz
+from rot import rotz, B
 
 def estimate(t, y, u, x0, P0, V, W):
     # Dimensions
@@ -26,21 +26,18 @@ def estimate(t, y, u, x0, P0, V, W):
         # velocity vector
         v = np.array([u[1,i], 0])
 
-        # Linearized dynamics
-        A = np.eye(lx)
-        A[1:3,0] = rotz(X_m[0,i-1])@J@v*dt
-
-        # Linearized process noise dynamics
         L = np.zeros((lx, lx))
         L[0,0] = 1
         L[1:3,1:3] = rotz(X_m[0,i-1])
+        for j in range(1, lx, 2):
+            L[j:j+2,0] = -J@X_m[j:j+2,i-1]
 
         # Prior estimate
         t_p = X_m[0,i-1] + u[0,i]*dt
         rotT = rotz(t_p).T
         x_p = X_m[1:3,i-1] + rotz(X_m[0,i-1])@v*dt
         p_p = X_m[3:,i-1]
-        P_p = A@P_m[:,:,i-1]@A.T + L@V@L.T
+        P_p = P_m[:,:,i-1] + L@V@L.T
         X_p = np.hstack((t_p, x_p, p_p))
 
         # Innovation error
@@ -52,14 +49,21 @@ def estimate(t, y, u, x0, P0, V, W):
         # Linearized observation
         H = np.zeros((lp, lx))
         for j in range(0, lp, 2):
-            H[j:j+2,0] = -J@hx[j:j+2]
             H[j:j+2,1:3] = -rotT
             H[j:j+2,3+j:5+j] = rotT
 
         # Kalman gain, tiny perturbation added to avoid inverting singular matrix
         K = P_p@H.T@np.linalg.inv(H@P_p@H.T + W) #+ np.random.normal(0,1e-5, (lp, lp)))
 
-        # Posteriror estimate (symmetric P_m for numerical stability)
+        # Posteriror uncertainty (symmetric P_m for numerical stability)
         P_m[:,:,i] = (I-K@H)@P_p@(I-K@H).T + K@W@K.T
-        X_m[:,i] = X_p + K@z
+
+        # Posterior state update
+        dX = K@z
+        dB = B(dX[0])
+        dR = rotz(dX[0])
+        X_m[0,i] = X_p[0] + dX[0]
+        for j in range(1, lx, 2):
+            X_m[j:j+2,i] = dR@X_p[j:j+2] + dB@dX[j:j+2]
+        
     return X_m, P_m

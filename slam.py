@@ -3,24 +3,33 @@ from rot import rotz
 
 # TODO: internal state
 
-def dynamics(t, y):
-    # states
-    theta = y[0]
-    x = y[1:3]
-    ps = y[3:]
+class Unicycle2D:
+    """
+        Simple 2D unicycle model.
+        u = [omega, v]
+    """
+    def __init__(self, u, dt):
+        self.u = u
+        self.dt = dt
 
-    # speed & steering
-    u = 0.1
-    v = np.array([u, 0])
-    omega = 0.1 #np.sin(0.001*t)
+    def dynamics(self, t, y):
+        # states
+        theta = y[0]
+        x = y[1:3]
+        ps = y[3:]
 
-    d_theta = omega
-    d_x = rotz(theta) @ v
-    d_p = np.zeros(len(ps))
-    d_X = np.hstack((d_theta, d_x, d_p))
+        # speed & steering
+        v = np.array([self.u[1], 0])
+        omega = self.u[0]
 
-    # Process noise
-    w_v = np.hstack((np.random.multivariate_normal((0,0,0), np.eye(3)*1e-5), np.zeros(len(ps))))
+        d_theta = omega
+        d_x = rotz(theta) @ v
+        d_p = np.zeros(len(ps))
+        d_X = np.hstack((d_theta, d_x, d_p))
 
-    return d_X + w_v 
+        # Process noise
+        V = np.diag(0.02*np.hstack((omega, v, np.zeros(len(ps)))))**2
+        w_v = np.random.multivariate_normal(np.zeros(len(y)), V)
+
+        return d_X #+ w_v 
 

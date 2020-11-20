@@ -1,5 +1,5 @@
 # python
-__pycache__
+__pycache__/*
 *.py[cod]
 
 # vim
@@ -9,4 +9,5 @@ __pycache__
 # mac
 .DS_store
 
-
+# simulation data
+data/*
