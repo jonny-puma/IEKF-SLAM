@@ -1,3 +1,4 @@
+import pdb
 import numpy as np
 from matplotlib.patches import Ellipse
 import matplotlib.transforms as transforms
@@ -57,11 +58,19 @@ def nees(X, P):
     l, t = X.shape
     n = np.zeros(t)
     for i in range(t):
-        n[i] = X[:,i]@np.linalg.inv(P[:,:,i])@X[:,i].T
+        if np.count_nonzero(P[:,:,i]) == 0:
+            n[i] = 0
+        else:
+            n[i] = X[:,i]@np.linalg.inv(P[:,:,i])@X[:,i].T
     return np.cumsum(n)/(np.arange(1,t+1)*l)
 
 def rms(X):
     """
         Root Mean Squared error.
     """
-    return np.sqrt((X**2).mean())
+    l, t = X.shape
+    r = np.zeros(t)
+    for i in range(t):
+        r[i] = X[:,i]@X[:,i]
+    return np.sqrt(r/l)
+

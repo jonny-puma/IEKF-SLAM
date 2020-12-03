@@ -28,8 +28,10 @@ class Unicycle2D:
         d_X = np.hstack((d_theta, d_x, d_p))
 
         # Process noise
+        """
         V = np.diag(0.02*np.hstack((omega, v, np.zeros(len(ps)))))**2
         w_v = np.random.multivariate_normal(np.zeros(len(y)), V)
+        """
 
         return d_X #+ w_v 
 

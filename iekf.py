@@ -26,6 +26,9 @@ def estimate(t, y, u, x0, P0, V, W):
         # velocity vector
         v = np.array([u[1,i], 0])
 
+        # Linearized dynamics
+        # A = I
+
         L = np.zeros((lx, lx))
         L[0,0] = 1
         L[1:3,1:3] = rotz(X_m[0,i-1])
