@@ -35,6 +35,7 @@ y0 = np.hstack((theta0, x0, p))
 t_end = 400
 dt = 0.75
 u = (9*np.pi/180, 1)
+# TODO: noise as init variable!
 dynsys = slam.Unicycle2D(u, dt)
 sol = solve_ivp(dynsys.dynamics, [0,t_end], y0, t_eval=np.arange(0, t_end, dt))
 t = len(sol.t)
@@ -88,7 +89,10 @@ for i in range(0, lp*2, 2):
     # last landmark estimate
     plt.plot(ekf_y[3+i,-1], ekf_y[4+i,-1], "xr", markersize=6)
     # 3 sigma certainty ellipse of last landmark estimate
-    confidence_ellipse(ekf_y[3+i,-1], ekf_y[4+i,-1], ekf_P[3+i:5+i,3+i:5+i,-1], ax, edgecolor="r", n_std=3)
+    confidence_ellipse(ekf_y[3+i,-1],
+                       ekf_y[4+i,-1],
+                       ekf_P[3+i:5+i,3+i:5+i,-1],
+                       ax, edgecolor="r", n_std=3)
 plt.legend(("System trajectory",
             "Estimated trajectory",
             "Landmark positions",
@@ -110,7 +114,10 @@ for i in range(0, lp*2, 2):
     # last landmark estimate
     plt.plot(iekf_y[3+i,-1], iekf_y[4+i,-1], "xr", markersize=6)
     # 3 sigma certainty ellipse of last landmark estimate
-    confidence_ellipse(iekf_y[3+i,-1], iekf_y[4+i,-1], iekf_P[3+i:5+i,3+i:5+i,-1], ax, edgecolor="r", n_std=3)
+    confidence_ellipse(iekf_y[3+i,-1],
+                       iekf_y[4+i,-1],
+                       iekf_P[3+i:5+i,3+i:5+i,-1],
+                       ax, edgecolor="r", n_std=3)
 plt.legend(("System trajectory",
             "Estimated trajectory",
             "Landmark positions",
