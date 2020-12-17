@@ -1,3 +1,4 @@
+import pdb
 import numpy as np
 from rot import rotz
 
@@ -40,25 +41,33 @@ def estimate(t, y, u, x0, P0, V, W):
         x_p = X_m[1:3,i-1] + rotz(X_m[0,i-1])@v*dt
         p_p = X_m[3:,i-1]
         P_p = A@P_m[:,:,i-1]@A.T + L@V@L.T
-        X_p = np.hstack((t_p, x_p, p_p))
 
         # Innovation error
         hx = np.zeros(lp)
         for j in range(0, lp, 2):
+            # First time observing landmark
+            if np.isnan(p_p[j]) and not np.isnan(y[j,i]):
+                p_p[j:j+2] = rotz(t_p)@y[j:j+2,i] + x_p
             hx[j:j+2] = rotT@(p_p[j:j+2] - x_p)
-        z = y[:,i] - hx
+        z = np.nan_to_num(y[:,i] - hx)
 
         # Linearized observation
         H = np.zeros((lp, lx))
         for j in range(0, lp, 2):
-            H[j:j+2,0] = -J@hx[j:j+2]
-            H[j:j+2,1:3] = -rotT
-            H[j:j+2,3+j:5+j] = rotT
+            # check if we have valid measurement
+            if not np.isnan(y[j,i]):
+                H[j:j+2,0] = -J@hx[j:j+2]
+                H[j:j+2,1:3] = -rotT
+                H[j:j+2,3+j:5+j] = rotT
 
-        # Kalman gain, tiny perturbation added to avoid inverting singular matrix
-        K = P_p@H.T@np.linalg.inv(H@P_p@H.T + W) #+ np.random.normal(0,1e-5, (lp, lp)))
+        # Kalman gain
+        K = P_p@H.T@np.linalg.inv(H@P_p@H.T + W)
+
+        # Concatenated prior
+        X_p = np.hstack((t_p, x_p, p_p))
 
         # Posteriror estimate (symmetric P_m for numerical stability)
         P_m[:,:,i] = (I-K@H)@P_p@(I-K@H).T + K@W@K.T
         X_m[:,i] = X_p + K@z
+
     return X_m, P_m
