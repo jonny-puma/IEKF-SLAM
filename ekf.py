@@ -1,8 +1,25 @@
-import pdb
 import numpy as np
 from rot import rotz
 
 def estimate(t, y, u, x0, P0, V, W):
+    """
+        Run IEKF estimate on batch data.
+        
+        Parameters:
+        -----------
+        t: time samples
+        y: landmarkmeasurements, nan when measurement not available
+        x0: initial state guess
+        P0: initial covariance
+        V: Process covariance
+        W: Measurement covariance
+
+        Returns:
+        --------
+        X_m: state estimates
+        P_m: estimate covariances
+    """
+
     # Dimensions
     lx = len(x0)
     lt = len(t)
@@ -20,10 +37,10 @@ def estimate(t, y, u, x0, P0, V, W):
                   [1, 0]])
 
     for i in range(1, lt):
-        # timestep
+        # Timestep
         dt = t[i] - t[i-1]
 
-        # velocity vector
+        # Velocity vector
         v = np.array([u[1,i], 0])
 
         # Linearized dynamics
@@ -54,7 +71,7 @@ def estimate(t, y, u, x0, P0, V, W):
         # Linearized observation
         H = np.zeros((lp, lx))
         for j in range(0, lp, 2):
-            # check if we have valid measurement
+            # Check if we have valid measurement
             if not np.isnan(y[j,i]):
                 H[j:j+2,0] = -J@hx[j:j+2]
                 H[j:j+2,1:3] = -rotT

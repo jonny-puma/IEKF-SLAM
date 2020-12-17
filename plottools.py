@@ -75,6 +75,17 @@ def rms(X):
     return np.sqrt(r/l)
 
 def plot_simulation(sol, p, ekf_y, ekf_P, iekf_y, iekf_P):
+    """
+        Plot the result of a simulation and compare the
+        estimates from two filters.
+        
+        Parameters:
+        ----------
+        sol: solution from ivp solver
+        (i)ekf_y: state estimates from filter
+        (i)ekf_P: covariance matrix from filter
+    """
+
     t = len(sol.t)
     lp = len(p)
     # Plot EKF trajectory

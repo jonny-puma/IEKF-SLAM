@@ -19,14 +19,16 @@ NRUNS = 100
 sensor_range = 5
 
 # Simulation length in seconds
-t_end = 800
+t_end = 400
 
-# initial conditions
+# Number of landmarks
+lp = 20
+
+# Initial conditions
 theta0 = 0
 x0 = np.array([0,0])
 
-# generate landmarks
-lp = 20
+# Generate landmarks and stack with initial conditions
 p = np.zeros(lp*2)
 for i in range(0, lp):
     p[2*i] = np.cos(i*2*np.pi/lp)*8
@@ -35,8 +37,8 @@ for i in range(0, lp):
 y0 = np.hstack((theta0, x0, p))
 
 
-# solve initial value problem
-dt = 1
+# Solve initial value problem
+dt = 0.75
 u = (9*np.pi/180, 1)
 dynsys = slam.Unicycle2D(u, dt)
 sol = solve_ivp(dynsys.dynamics, [0,t_end], y0, t_eval=np.arange(0, t_end, dt))
@@ -49,11 +51,12 @@ if not sol.success:
 
 # Process covariance
 V_gain = 1e-3
-ekf_V = np.diag(np.hstack((np.ones(3)*V_gain, np.zeros(lp*2)))) 
+ekf_V = np.eye(len(y0))*V_gain
+#ekf_V = np.diag(np.hstack((np.ones(3)*V_gain, np.zeros(lp*2)))) 
 
 # Measurement noise variance 
 w_gain = 0.12
-ekf_W = 2*np.eye(lp*2)*w_gain
+ekf_W = np.eye(lp*2)*w_gain**2
 
 # Average of NRUNS simulations
 dim = len(y0)
@@ -64,8 +67,7 @@ avg_iekf_P = np.zeros((dim, dim, t))
 
 # Do NRUNS simulations
 for _ in range(NRUNS):
-    # create noisy measurements
-    # W = np.eye(2)*w_gain
+    # Create noisy measurements
     ekf_z = np.zeros((lp*2, t))
     for i in range(t):
         for j in range(0,lp*2,2):
@@ -79,7 +81,7 @@ for _ in range(NRUNS):
                 # nan if out of sensor range
                 ekf_z[j:j+2,i] = np.array((np.nan, np.nan))
 
-    # estimator initial guess
+    # Estimator initial guess
     p0 = np.ones(lp*2)*np.nan
     for i in range(0, 2*lp, 2):
         dp = np.linalg.norm(p[i:i+2] - y0[1:3]) 
@@ -87,9 +89,9 @@ for _ in range(NRUNS):
             W0 = abs(dp)*np.eye(2)*w_gain**2
             p0[i:i+2] = p[i:i+2] + np.random.multivariate_normal((0,0), W0)
     ekf_x0 = np.hstack((y0[0:3], p0))
-    ekf_P0 = np.diag(np.hstack((np.zeros(3),np.ones(lp*2)*3)))
+    ekf_P0 = np.diag(np.hstack((np.zeros(3),np.ones(lp*2))))
 
-    # inputs
+    # Noisy input
     w_u = np.random.normal(0,0.1*0.02,(2,t))
     ekf_u = np.vstack((np.full(t, u[0]), np.full(t, u[1]))) + w_u
     ekf_u[:,0] = np.zeros(2)

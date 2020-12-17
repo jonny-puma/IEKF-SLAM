@@ -1,8 +1,6 @@
 import numpy as np
 from rot import rotz
 
-# TODO: internal state
-
 class Unicycle2D:
     """
         Simple 2D unicycle model.
