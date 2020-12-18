@@ -1,6 +1,7 @@
 import numpy as np
 from rot import rotz, B
 
+
 def estimate(t, y, u, x0, P0, V, W):
     """
         Run IEKF estimate on batch data.
@@ -66,6 +67,8 @@ def estimate(t, y, u, x0, P0, V, W):
             # First time observing landmark
             if np.isnan(p_p[j]) and not np.isnan(y[j,i]):
                 p_p[j:j+2] = rotz(t_p)@y[j:j+2,i] + x_p
+                P_p[j+3,j+3] = P_m[j+3,j+3,0]
+                P_p[j+4,j+4] = P_m[j+4,j+4,0]
             hx[j:j+2] = rotT@(p_p[j:j+2] - x_p)
         z = np.nan_to_num(y[:,i] - hx)
 

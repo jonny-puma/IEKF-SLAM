@@ -15,6 +15,9 @@ from scipy.integrate import solve_ivp
 # Number of monte carlo simulations
 NRUNS = 100
 
+# Save plots to data/plots/
+saveplots = False
+
 # Sensor range in meters
 sensor_range = 5
 
@@ -33,15 +36,14 @@ p = np.zeros(lp*2)
 for i in range(0, lp):
     p[2*i] = np.cos(i*2*np.pi/lp)*8
     p[2*i+1] = np.sin(i*2*np.pi/lp)*8 + 6.125
-
 y0 = np.hstack((theta0, x0, p))
 
 
 # Solve initial value problem
-dt = 0.75
+dt = 1
 u = (9*np.pi/180, 1)
-dynsys = slam.Unicycle2D(u, dt)
-sol = solve_ivp(dynsys.dynamics, [0,t_end], y0, t_eval=np.arange(0, t_end, dt))
+dynsys = slam.Unicycle2D(u, np.zeros((3,3)))
+sol = solve_ivp(dynsys.dynamics, [0,t_end], y0[0:3], t_eval=np.arange(0, t_end, dt))
 t = len(sol.t)
 
 # Check if solver successfull
@@ -49,12 +51,11 @@ if not sol.success:
     print(f"IVP solver failed: {sol.message}", file=sys.stderr)
     sys.exit(1)
 
-# Process covariance
-V_gain = 1e-3
-ekf_V = np.eye(len(y0))*V_gain
-#ekf_V = np.diag(np.hstack((np.ones(3)*V_gain, np.zeros(lp*2)))) 
+# System noise covariance: 2% of linear and rotational velocity
+xV = np.array((0.02, 0.02, 0.02))**2
+ekf_V = 30*np.diag(np.hstack((xV, np.zeros(lp*2))))
 
-# Measurement noise variance 
+# Measurement noise variance  12% of distance
 w_gain = 0.12
 ekf_W = np.eye(lp*2)*w_gain**2
 
@@ -71,7 +72,7 @@ for _ in range(NRUNS):
     ekf_z = np.zeros((lp*2, t))
     for i in range(t):
         for j in range(0,lp*2,2):
-            dz = rotz(sol.y[0,i]).T@(sol.y[3+j:5+j,i] - sol.y[1:3,i])
+            dz = rotz(sol.y[0,i]).T@(p[j:j+2] - sol.y[1:,i])
             # Check if landmark within sensor range
             if np.linalg.norm(dz) <= sensor_range:
                 W = abs(dz)*np.eye(2)*w_gain**2
@@ -89,10 +90,10 @@ for _ in range(NRUNS):
             W0 = abs(dp)*np.eye(2)*w_gain**2
             p0[i:i+2] = p[i:i+2] + np.random.multivariate_normal((0,0), W0)
     ekf_x0 = np.hstack((y0[0:3], p0))
-    ekf_P0 = np.diag(np.hstack((np.zeros(3),np.ones(lp*2))))
+    ekf_P0 = np.diag(np.hstack((np.zeros(3),np.ones(lp*2)*3)))
 
     # Noisy input
-    w_u = np.random.normal(0,0.1*0.02,(2,t))
+    w_u = np.random.multivariate_normal((0,0), ekf_V[0:2,0:2], t).T
     ekf_u = np.vstack((np.full(t, u[0]), np.full(t, u[1]))) + w_u
     ekf_u[:,0] = np.zeros(2)
 
@@ -113,4 +114,4 @@ avg_iekf_y /= NRUNS
 avg_iekf_P /= NRUNS
 
 # Plot results
-plottools.plot_simulation(sol, p, avg_ekf_y, avg_ekf_P, avg_iekf_y, avg_iekf_P)
+plottools.plot_simulation(sol, p, avg_ekf_y, avg_ekf_P, avg_iekf_y, avg_iekf_P, save=saveplots)

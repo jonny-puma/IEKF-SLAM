@@ -1,13 +1,11 @@
 import numpy as np
 
-
 def rotz(theta):
     """
         Rotation matrix in the xy-plane.
     """
     return np.array([[np.cos(theta), -np.sin(theta)],
                      [np.sin(theta), np.cos(theta)]])
-
 def B(a):
     """
         B matrix from IEKF.

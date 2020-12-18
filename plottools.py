@@ -1,7 +1,13 @@
 import numpy as np
+import matplotlib
 from matplotlib import pyplot as plt
 from matplotlib.patches import Ellipse
 import matplotlib.transforms as transforms
+
+
+# Plot settings
+matplotlib.rcParams['figure.figsize'] = [12, 8]
+matplotlib.rcParams['savefig.dpi'] = 200
 
 def confidence_ellipse(x, y, cov, ax, n_std=3.0, facecolor='none', **kwargs):
     """
@@ -61,8 +67,8 @@ def nees(X, P):
         if np.count_nonzero(P[:,:,i]) == 0:
             n[i] = 0
         else:
-            n[i] = X[:,i]@np.linalg.inv(P[:,:,i])@X[:,i].T
-    return np.cumsum(n)/(np.arange(1,t+1)*l)
+            n[i] = X[:,i]@np.linalg.inv(P[:,:,i])@X[:,i]
+    return n
 
 def rms(X):
     """
@@ -74,7 +80,7 @@ def rms(X):
         r[i] = X[:,i]@X[:,i]
     return np.sqrt(r/l)
 
-def plot_simulation(sol, p, ekf_y, ekf_P, iekf_y, iekf_P):
+def plot_simulation(sol, p, ekf_y, ekf_P, iekf_y, iekf_P, save=False):
     """
         Plot the result of a simulation and compare the
         estimates from two filters.
@@ -82,8 +88,10 @@ def plot_simulation(sol, p, ekf_y, ekf_P, iekf_y, iekf_P):
         Parameters:
         ----------
         sol: solution from ivp solver
+        p: landmarks
         (i)ekf_y: state estimates from filter
         (i)ekf_P: covariance matrix from filter
+        save: bool, save to file if true
     """
 
     t = len(sol.t)
@@ -94,9 +102,9 @@ def plot_simulation(sol, p, ekf_y, ekf_P, iekf_y, iekf_P):
     plt.plot(sol.y[1,:], sol.y[2,:], "b")
     plt.plot(ekf_y[1,:], ekf_y[2,:], color="r", linestyle="--", alpha=0.7)
     for i in range(0, lp, 2):
-        # true landmark positions
+        # True landmark positions
         plt.plot(p[i], p[i+1], ".b")
-        # last landmark estimate
+        # Last landmark estimate
         plt.plot(ekf_y[3+i,-1], ekf_y[4+i,-1], "xr", markersize=6)
         # 3 sigma confidence ellipse of last landmark estimate
         confidence_ellipse(ekf_y[3+i,-1],
@@ -113,15 +121,18 @@ def plot_simulation(sol, p, ekf_y, ekf_P, iekf_y, iekf_P):
     plt.ylabel("y [m]")
     plt.title("EKF System Trajectory")
 
+    if save:
+        plt.savefig("data/plots/ekf_trajectory")
+
     # Plot IEKF trajectory
     plt.figure()
     ax = plt.gca()
     plt.plot(sol.y[1,:], sol.y[2,:], "b")
     plt.plot(iekf_y[1,:], iekf_y[2,:], color="r", linestyle="--", alpha=0.7)
     for i in range(0, lp, 2):
-        # true landmark positions
+        # True landmark positions
         plt.plot(p[i], p[i+1], ".b")
-        # last landmark estimate
+        # Last landmark estimate
         plt.plot(iekf_y[3+i,-1], iekf_y[4+i,-1], "xr", markersize=6)
         # 3 sigma confidence ellipse of last landmark estimate
         confidence_ellipse(iekf_y[3+i,-1],
@@ -138,39 +149,51 @@ def plot_simulation(sol, p, ekf_y, ekf_P, iekf_y, iekf_P):
     plt.ylabel("y [m]")
     plt.title("IEKF System Trajectory")
 
+    if save:
+        plt.savefig("data/plots/iekf_trajectory")
+
+    # Pose error
+    ekf_e = sol.y - ekf_y[0:3]
+    iekf_e = sol.y - iekf_y[0:3]
+
     # Calculate NEES
-    avg_ekf_e = sol.y - ekf_y
-    avg_iekf_e = sol.y - iekf_y
-    avg_ekf_nees = nees(avg_ekf_e[:3,1:], ekf_P[:3,:3,1:])
-    avg_iekf_nees = nees(avg_iekf_e[:3,1:], iekf_P[:3,:3,1:])
+    ekf_nees = nees(ekf_e[:,1:], ekf_P[:3,:3,1:])
+    iekf_nees = nees(iekf_e[:,1:], iekf_P[:3,:3,1:])
 
     # Plot NEES
     plt.figure()
-    plt.plot(sol.t[1:], avg_ekf_nees)
-    plt.plot(sol.t[1:], avg_iekf_nees)
+    plt.plot(sol.t[1:], ekf_nees)
+    plt.plot(sol.t[1:], iekf_nees)
     plt.axhline(1, color="k", linewidth=0.75)
     plt.xlabel(" time [s]")
     plt.ylabel("NEES")
     plt.title("Pose NEES")
     plt.legend(("EKF", "IEKF"))
 
+    if save:
+        plt.savefig("data/plots/pose_nees")
+
     # Plot position RMS
-    avg_ekf_rms = rms(avg_ekf_e[1:3,1:])
-    avg_iekf_rms = rms(avg_iekf_e[1:3,1:])
+    ekf_rms = rms(ekf_e[1:,1:])
+    iekf_rms = rms(iekf_e[1:,1:])
     plt.figure()
-    plt.plot(sol.t[1:], avg_ekf_rms)
-    plt.plot(sol.t[1:], avg_iekf_rms)
+    plt.plot(sol.t[1:], ekf_rms)
+    plt.plot(sol.t[1:], iekf_rms)
     plt.axhline(0, color="k", linewidth=0.75)
     plt.xlabel("time [s]")
     plt.ylabel("RMS [m]")
+    plt.ylim(bottom=0)
     plt.title("Position RMS")
     plt.legend(("EKF", "IEKF"))
 
-    # plot heading error and 99% confidence interval
+    if save:
+        plt.savefig("data/plots/position_rms")
+
+    # Plot heading error and 99% confidence interval
     plt.figure()
 
     plt.subplot(1,2,1)
-    plt.plot(sol.t, avg_ekf_e[0,:])
+    plt.plot(sol.t, ekf_e[0,:])
     plt.plot(sol.t, 3*np.sqrt(ekf_P[0,0,:]), "r")
     plt.plot(sol.t, -3*np.sqrt(ekf_P[0,0,:]), "r")
     plt.title("EKF")
@@ -179,7 +202,7 @@ def plot_simulation(sol, p, ekf_y, ekf_P, iekf_y, iekf_P):
     ax = plt.gca()
 
     plt.subplot(1,2,2, sharey=ax)
-    plt.plot(sol.t, avg_iekf_e[0,:])
+    plt.plot(sol.t, iekf_e[0,:])
     plt.plot(sol.t, 3*np.sqrt(iekf_P[0,0,:]), "r")
     plt.plot(sol.t, -3*np.sqrt(iekf_P[0,0,:]), "r")
     plt.title("IEKF")
@@ -187,5 +210,8 @@ def plot_simulation(sol, p, ekf_y, ekf_P, iekf_y, iekf_P):
     plt.legend(("Error", "99% confidence interval"), loc="upper right")
 
     plt.suptitle("Heading error")
+
+    if save:
+        plt.savefig("data/plots/heading_error")
 
     plt.show()
