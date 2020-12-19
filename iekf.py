@@ -9,7 +9,7 @@ def estimate(t, y, u, x0, P0, V, W):
         Parameters:
         -----------
         t: time samples
-        y: landmarkmeasurements, nan when measurement not available
+        y: landmark measurements, nan when measurement not available
         x0: initial state guess
         P0: initial covariance
         V: Process covariance

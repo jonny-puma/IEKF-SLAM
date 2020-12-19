@@ -3,6 +3,7 @@ import matplotlib
 from matplotlib import pyplot as plt
 from matplotlib.patches import Ellipse
 import matplotlib.transforms as transforms
+from scipy.stats import chi2
 
 
 # Plot settings
@@ -57,7 +58,7 @@ def confidence_ellipse(x, y, cov, ax, n_std=3.0, facecolor='none', **kwargs):
 
 def nees(X, P):
     """
-        Average Normalised Estimation Error squared.
+        Normalised Estimation Error squared.
         Measures the consistency of a filter.
         NEES approx 1 is considered consistent.
     """
@@ -68,7 +69,7 @@ def nees(X, P):
             n[i] = 0
         else:
             n[i] = X[:,i]@np.linalg.inv(P[:,:,i])@X[:,i]
-    return n
+    return n/l
 
 def rms(X):
     """
@@ -80,7 +81,7 @@ def rms(X):
         r[i] = X[:,i]@X[:,i]
     return np.sqrt(r/l)
 
-def plot_simulation(sol, p, ekf_y, ekf_P, iekf_y, iekf_P, save=False):
+def plot_simulation(sol, p, ekf_y, ekf_P, ekf_nees, iekf_y, iekf_P, iekf_nees, n, save=False):
     """
         Plot the result of a simulation and compare the
         estimates from two filters.
@@ -91,6 +92,7 @@ def plot_simulation(sol, p, ekf_y, ekf_P, iekf_y, iekf_P, save=False):
         p: landmarks
         (i)ekf_y: state estimates from filter
         (i)ekf_P: covariance matrix from filter
+        n: number of monte carlo runs
         save: bool, save to file if true
     """
 
@@ -153,25 +155,49 @@ def plot_simulation(sol, p, ekf_y, ekf_P, iekf_y, iekf_P, save=False):
         plt.savefig("data/plots/iekf_trajectory")
 
     # Pose error
-    ekf_e = sol.y - ekf_y[0:3]
-    iekf_e = sol.y - iekf_y[0:3]
+    ekf_e = sol.y - ekf_y[:3]
+    iekf_e = sol.y - iekf_y[:3]
 
     # Calculate NEES
-    ekf_nees = nees(ekf_e[:,1:], ekf_P[:3,:3,1:])
-    iekf_nees = nees(iekf_e[:,1:], iekf_P[:3,:3,1:])
+    # ekf_nees = nees(ekf_e[:,1:], ekf_P[:3,:3,1:])
+    # iekf_nees = nees(iekf_e[:,1:], iekf_P[:3,:3,1:])
+
+    # NEES confidence interval
+    dof = 3*n
+    nees_c1 = chi2.ppf(0.01, dof)/dof
+    nees_c2 = chi2.ppf(0.99, dof)/dof
+
 
     # Plot NEES
     plt.figure()
     plt.plot(sol.t[1:], ekf_nees)
     plt.plot(sol.t[1:], iekf_nees)
-    plt.axhline(1, color="k", linewidth=0.75)
+    plt.axhline(nees_c1, color="r", linestyle="--")
+    plt.axhline(nees_c2, color="r", linestyle="--")
     plt.xlabel(" time [s]")
     plt.ylabel("NEES")
     plt.title("Pose NEES")
-    plt.legend(("EKF", "IEKF"))
+    plt.legend(("EKF", "IEKF", "99% confidence interval"))
 
     if save:
         plt.savefig("data/plots/pose_nees")
+
+    cum_ekf_nees = np.cumsum(ekf_nees)/sol.t[1:]
+    cum_iekf_nees = np.cumsum(iekf_nees)/sol.t[1:]
+
+    # Plot normalized cumulative NEES
+    plt.figure()
+    plt.plot(sol.t[1:], cum_ekf_nees)
+    plt.plot(sol.t[1:], cum_iekf_nees)
+    plt.axhline(nees_c1, color="r", linestyle="--")
+    plt.axhline(nees_c2, color="r", linestyle="--")
+    plt.xlabel(" time [s]")
+    plt.ylabel("NEES")
+    plt.title("Normalized Cumulative Pose NEES")
+    plt.legend(("EKF", "IEKF", "99% confidence interval"))
+
+    if save:
+        plt.savefig("data/plots/cum_pose_nees")
 
     # Plot position RMS
     ekf_rms = rms(ekf_e[1:,1:])
